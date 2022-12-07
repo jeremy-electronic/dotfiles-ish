@@ -1,0 +1,780 @@
+;;; package --- Summary
+;; >> The first line should be of the form: ";;; package --- Summary"
+;; >> You should have a section marked ";;; Commentary:"
+;; if you insist
+
+;;; Commentary:
+;; a random mess
+;; TODO: organize with straight.el, org-babel
+;; see https://qua.name/mrb/an-org-babel-based-emacs-configuration
+
+;; ========== DON'T FORGET TO SCRUB PRIOR TO COMMIT'ING ==========
+
+;;  The basics come first in case of errors later which cause things to go sideways
+
+;;; Code:
+(blink-cursor-mode nil)
+
+;; stop destroying my filesystem and git repos
+(setq backup-directory-alist
+          `((".*" . ,temporary-file-directory)))
+    (setq auto-save-file-name-transforms
+          `((".*" ,temporary-file-directory t)))
+
+(defvar temporary-file-directory
+"/some/user/.auto-backup")
+(setq create-lockfiles nil)
+
+(defalias 'qrr 'query-replace-regexp)
+(defalias 'ddq 'dired-do-query-replace-regexp)
+(defalias 'rb 'revert-buffer)
+(defalias 'fgd 'find-grep-dired)
+(defalias 'htm 'html-mode)
+(defalias 'js 'js2-mode)
+(defalias 'ttl 'toggle-truncate-lines)
+
+;; Per Steve Yegge's Drunken Blog Rant 'Effective Emacs'
+;; https://sites.google.com/site/steveyegge2/effective-emacs
+(global-set-key "\C-x\C-m" 'execute-extended-command)
+(global-set-key "\C-c\C-m" 'execute-extended-command)
+(global-set-key "\C-w" 'backward-kill-word)
+(global-set-key "\C-x\C-k" 'kill-region)
+(global-set-key "\C-c\C-k" 'kill-region)
+
+(global-set-key "\C-c\C-f" 'yafolding-toggle-element)
+
+(if (fboundp 'scroll-bar-mode) (scroll-bar-mode -1))
+(if (fboundp 'tool-bar-mode) (tool-bar-mode -1))
+(if (fboundp 'menu-bar-mode) (menu-bar-mode -1))
+
+;; TODO: use a window-management package some day?
+(global-set-key (kbd "C-x O") (lambda ()
+                                (interactive)
+                                (other-window -1)))
+
+;; Mac things
+(defun dos2unix ()
+      "Not exactly but it's easier to remember"
+      (interactive)
+      (set-buffer-file-coding-system 'unix 't) )
+
+(defun copy-from-osx ()
+  (shell-command-to-string "pbpaste"))
+
+(defun paste-to-osx (text &optional push)
+  (let ((process-connection-type nil))
+    (let ((proc (start-process "pbcopy" "*Messages*" "pbcopy")))
+      (process-send-string proc text)
+      (process-send-eof proc))))
+
+(setq interprogram-cut-function 'paste-to-osx)
+(setq interprogram-paste-function 'copy-from-osx)
+
+;; Das Paket
+(require 'package)
+
+(setq package-archives '(("gnu" . "https://elpa.gnu.org/packages/")
+                         ("melpa" . "https://melpa.org/packages/")
+			 ("org" . "http://orgmode.org/elpa/")))
+
+;; Initialize the packages, avoiding a re-initialization.
+(unless (bound-and-true-p package--initialized)
+  (setq package-enable-at-startup nil)
+  (package-initialize))
+
+;; Make sure `use-package' is available.
+(unless (package-installed-p 'use-package)
+  (package-refresh-contents)
+  (package-install 'use-package))
+
+;; Configure `use-package' prior to loading it.
+(eval-and-compile
+  (setq use-package-always-ensure nil)
+  (setq use-package-always-defer nil)
+  (setq use-package-always-demand nil)
+  (setq use-package-expand-minimally nil)
+  (setq use-package-enable-imenu-support t)
+  (setq use-package-compute-statistics t)
+  ;; The following is VERY IMPORTANT.  Write hooks using their real name
+  ;; instead of a shorter version: after-init ==> `after-init-hook'.
+  ;;
+  ;; This is to empower help commands with their contextual awareness,
+  ;; such as `describe-symbol'.
+  (setq use-package-hook-name-suffix nil))
+
+(eval-when-compile
+  (require 'use-package))
+
+(use-package which-key
+  :diminish
+  :config
+  (which-key-setup-side-window-bottom)
+  (setq which-key-idle-delay 0.9)
+  (which-key-mode))
+
+
+(fset 'yes-or-no-p 'y-or-n-p)
+
+(use-package vc
+  :config
+  (setq vc-follow-symlinks t)) ; TODO: manage dotfiles
+
+;; remember: macOS paths are at /etc/paths
+;; see: https://github.com/purcell/exec-path-from-shell/
+(exec-path-from-shell-initialize)
+
+;; TODO: lost this config... :(
+(use-package org)
+(require 'org)
+(defun org-clocking-buffer (&rest _))
+
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "STARTED(s)" "WAIT(w@/!)" "|" "DONE(d!)" "CANCELED(c@)")))
+
+(setq auto-mode-alist
+      (append '(("\\.org\\'" . org-mode)
+                ("\\.js\\'" . js-mode)
+                ("\\.ts\\'" . js-mode)
+;;		("\\.rs\\'" . rustic-mode)
+		("\\.json\\'" . web-mode) ;; nicer highlighting for package.json
+		("\\.php\\'" . web-mode) ;; nicer highlighting than php-mode
+		("\\.liquid\\'" . web-mode)
+		("\\.tsx\\'" . web-mode)
+;;		("\\.jsx\\'" . web-mode)
+		)
+              auto-mode-alist))
+
+(global-set-key "\C-cl" 'org-store-link)
+(global-set-key "\C-ca" 'org-agenda)
+(global-set-key "\C-cb" 'org-iswitchb)
+(global-font-lock-mode 1)
+
+;; Customizing colors used in diff mode
+(defun custom-diff-colors ()
+  "update the colors for diff faces"
+  (set-face-attribute
+   'diff-added nil :foreground "green")
+  (set-face-attribute
+   'diff-removed nil :foreground "red")
+  (set-face-attribute
+   'diff-changed nil :foreground "purple"))
+(eval-after-load "diff-mode" '(custom-diff-colors))
+
+(defun update-diff-colors ()
+  "update the colors for diff faces"
+  (set-face-attribute 'diff-added nil
+                      :foreground "white" :background "blue")
+  (set-face-attribute 'diff-removed nil
+                      :foreground "white" :background "red3")
+  (set-face-attribute 'diff-changed nil
+                      :foreground "white" :background "purple"))
+(eval-after-load "diff-mode"
+  '(update-diff-colors))
+
+(defvar my/refile-map (make-sparse-keymap))
+
+(defmacro my/defshortcut (key file)
+  `(progn
+     (set-register ,key (cons 'file ,file))
+     (define-key my/refile-map
+       (char-to-string ,key)
+       (lambda (prefix)
+         (interactive "p")
+         (let ((org-refile-targets '(((,file) :maxlevel . 6)))
+               (current-prefix-arg (or current-prefix-arg '(4))))
+           (call-interactively 'org-refile))))))
+
+
+  (define-key my/refile-map "," 'my/org-refile-to-previous-in-file)
+
+(my/defshortcut ?e "~/.emacs")
+(my/defshortcut ?n "~/development/scratch/offline.org")
+(my/defshortcut ?r "~/development/repos/")
+
+;; (defun my/org-agenda-new ()
+;;   "Create a new note or task at the current agenda item.
+;; Creates it at the same level as the previous task, so it's better to use
+;; this with to-do items than with projects or headings."
+;;   (interactive)
+;;   (org-agenda-switch-to)
+;;   (org-capture 0))
+;; ;; New key assignment
+;; (define-key org-agenda-mode-map "N" 'my/org-agenda-new)
+
+;; ref. https://github.com/alphapapa/magit-todos
+(use-package magit-todos
+  :config
+  (magit-todos-mode))
+
+(global-set-key (kbd "C-x g") 'magit-status)
+(global-set-key (kbd "C-x M-g") 'magit-dispatch)
+
+;; vvvvv from Sacha Chua: https://sachachua.com/dotemacs/index.html vvvvv
+ (defun my/magit-commit-all ()
+      "Publish the current file and commit all the current changes."
+      (interactive)
+      (my/org-publish-maybe)
+      (magit-status default-directory)
+      (magit-stage-all)
+      (call-interactively 'magit-log-edit))
+
+    (use-package magit
+      :load-path "~/elisp/magit"
+      :defer t
+      :config
+      (progn
+        (when (equal system-type 'windows-nt)
+          (setq magit-git-executable "c:/program files (x86)/git/bin/git.exe"))
+        (setq magit-diff-options '("-b")) ; ignore whitespace
+        (define-key magit-mode-map "#gg" 'endless/load-gh-pulls-mode)
+        (defvar my/magit-limit-to-directory nil "Limit magit status to a specific directory.")
+        (defun my/magit-status-in-directory (directory)
+          "Displays magit status limited to DIRECTORY.
+  Uses the current `default-directory', or prompts for a directory
+  if called with a prefix argument. Sets `my/magit-limit-to-directory'
+  so that it's still active even after you stage a change. Very experimental."
+          (interactive (list (expand-file-name
+                              (if current-prefix-arg
+                                  (read-directory-name "Directory: ")
+                                default-directory))))
+          (setq my/magit-limit-to-directory directory)
+          (magit-status directory))
+
+        (defadvice magit-insert-untracked-files (around sacha activate)
+          (if my/magit-limit-to-directory
+              (magit-with-section (section untracked 'untracked "Untracked files:" t)
+                (let ((files (cl-mapcan
+                              (lambda (f)
+                                (when (eq (aref f 0) ??) (list f)))
+                              (magit-git-lines
+                               "status" "--porcelain" "--" my/magit-limit-to-directory))))
+                  (if (not files)
+                      (setq section nil)
+                    (dolist (file files)
+                      (setq file (magit-decode-git-path (substring file 3)))
+                      (magit-with-section (section file file)
+                        (insert "\t" file "\n")))
+                    (insert "\n"))))
+            ad-do-it))
+
+        (defadvice magit-insert-unstaged-changes (around sacha activate)
+          (if my/magit-limit-to-directory
+              (let ((magit-current-diff-range (cons 'index 'working))
+                    (magit-diff-options (copy-sequence magit-diff-options)))
+                (magit-git-insert-section (unstaged "Unstaged changes:")
+                    #'magit-wash-raw-diffs
+                  "diff-files"
+                  "--" my/magit-limit-to-directory
+                  ))
+            ad-do-it))
+
+        (defadvice magit-insert-staged-changes (around sacha activate)
+          "Limit to `my/magit-limit-to-directory' if specified."
+          (if my/magit-limit-to-directory
+              (let ((no-commit (not (magit-git-success "log" "-1" "HEAD"))))
+                (when (or no-commit (magit-anything-staged-p))
+                  (let ((magit-current-diff-range (cons "HEAD" 'index))
+                        (base (if no-commit
+                                  (magit-git-string "mktree")
+                                "HEAD"))
+                        (magit-diff-options (append '("--cached") magit-diff-options)))
+                    (magit-git-insert-section (staged "Staged changes:")
+                        (apply-partially #'magit-wash-raw-diffs t)
+                      "diff-index" "--cached" base "--" my/magit-limit-to-directory))))
+            ad-do-it)))
+      :bind (("C-x v d" . magit-status)
+             ("C-x v C-d" . my/magit-status-in-directory)
+             ("C-x v p" . magit-push)
+             ("C-x v c" . my/magit-commit-all)))
+
+;; From http://endlessparentheses.com/merging-github-pull-requests-from-emacs.html
+(defun endless/load-gh-pulls-mode ()
+  "Start `magit-gh-pulls-mode' only after a manual request."
+  (interactive)
+  (require 'magit-gh-pulls)
+  (add-hook 'magit-mode-hook 'turn-on-magit-gh-pulls)
+  (magit-gh-pulls-mode 1)
+  (magit-gh-pulls-reload))
+
+(use-package magit-gh-pulls)
+
+(use-package git-messenger
+  :bind (("C-x v m" . git-messenger:popup-message)))
+;; ^^^^^ from Sacha Chua: https://sachachua.com/dotemacs/index.html ^^^^^
+
+;; forever tweaking colors...
+;; wombat color-theme with misc face definition
+;; (solarized-create-theme-file-with-palette 'dark 'solarized-wombat-dark
+;;   '("#2a2a29" "#f6f3e8"
+;;     "#e5c06d" "#ddaa6f" "#ffb4ac" "#e5786d" "#834c98" "#a4b5e6" "#7ec98f" "#8ac6f2")
+;;   '((custom-theme-set-faces
+;;      theme-name
+;;      `(default ((,class (:foreground ,(solarized-color-blend base03 base3 0.15 2) :background ,base03))))
+;;      `(highlight ((,class (:background ,violet))))
+;;      `(font-lock-builtin-face ((,class (:foreground ,magenta))))
+;;      `(font-lock-constant-face ((,class (:foreground ,blue))))
+;;      `(font-lock-comment-face ((,class (:foreground ,base00))))
+;;      `(mode-line
+;;        ((,class (:foreground ,base2 :background ,(solarized-color-blend base03 base3 0.85 2)))))
+;;      `(mode-line-inactive
+;;        ((,class (:foreground ,base00 :background ,(solarized-color-blend base03 "black" 0.85 2)))))
+;;      `(mode-line-buffer-id ((,class (:foreground ,base3 :weight bold))))
+;;      `(minibuffer-prompt ((,class (:foreground ,base1))))
+;;      `(vertical-border ((,class (:foreground ,base03)))))))
+
+;; (load-theme 'solarized-wombat-dark t)
+
+;; (set-face-attribute 'region nil :background "#666")
+
+;; COMplete ANYthing mode && productivity improvements
+(add-hook 'after-init-hook 'global-company-mode)
+(with-eval-after-load 'company
+  (define-key company-active-map (kbd "M-n") nil)
+  (define-key company-active-map (kbd "M-p") nil)
+  (define-key company-active-map (kbd "C-n") #'company-select-next)
+  (define-key company-active-map (kbd "C-p") #'company-select-previous))
+
+(add-hook 'after-init-hook 'global-flycheck-mode)
+
+;; ido stuff
+(require 'ido)
+(ido-mode t)
+
+(setq ido-enable-flex-matching t)
+(setq ido-everywhere t)
+(ido-mode 1)
+(setq ido-use-filename-at-point 'guess)
+
+;; TRAMP...
+(setq tramp-default-method "ssh")
+
+;; for editing system files via ido + TRAMP
+(defun find-alternative-file-with-sudo ()
+  (interactive)
+  (let ((fname (or buffer-file-name
+                      dired-directory)))
+    (when fname
+      (if (string-match "^/sudo:root@localhost:" fname)
+            (setq fname (replace-regexp-in-string
+                                "^/sudo:root@localhost:" ""
+                                       fname))
+        (setq fname (concat "/sudo:root@localhost:" fname)))
+      (find-alternate-file fname))))
+(global-set-key (kbd "C-x C-r") 'find-alternative-file-with-sudo)
+
+(defun word-count nil "Count words in buffer" (interactive)
+(shell-command-on-region (point-min) (point-max) "wc -w"))
+
+(defun wc-region (start end)
+    "Print number of words in the region."
+    (interactive "r")
+    (save-excursion
+      (save-restriction
+        (narrow-to-region start end)
+        (goto-char (point-min))
+        (count-matches "\\sw+"))))
+
+;;  Here is how to extract just the dependency information from package-alist:
+;; (cl-loop for pkg in package-activated-list
+;;          for pkg-vec = (cdr (assq pkg package-alist))
+;;          when pkg-vec
+;;          collect (cons pkg
+;;                        (cl-loop for req in (package-desc-reqs pkg-vec)
+;;                                 for req-name = (car req)
+;;                                 when (memq req-name package-activated-list)
+;;                                 collect req-name)))
+
+(defun my-grow-list-by-dependency (original-list dependency-alist)
+  "Return a new list (of symbols) including all items in ORIGINAL-LIST and
+also recursively including all dependency as specified in DEPENDENCY-ALIST."
+  (cl-labels ((adjoin-with-dependency (item list)
+                                      (setq list (cl-adjoin item list))
+                                      (dolist (dep (cdr (assq item dependency-alist)))
+                                        (setq list (adjoin-with-dependency dep list)))
+                                      list))
+    (let ((ret nil))
+      (dolist (item original-list ret)
+        (setq ret (adjoin-with-dependency item ret))))))
+
+
+;; add diff to ibuffer
+(defun ibuffer-ediff-marked-buffers ()
+  (interactive)
+  (let* ((marked-buffers (ibuffer-get-marked-buffers))
+         (len (length marked-buffers)))
+    (unless (= 2 len)
+      (error (format "%s buffer%s been marked (needs to be 2)"
+                     len (if (= len 1) " has" "s have"))))
+    (ediff-buffers (car marked-buffers) (cadr marked-buffers))))
+
+;; switching to ibuffer puts the cursor on the most recent buffer
+(defadvice ibuffer (around ibuffer-point-to-most-recent) ()
+  "Open ibuffer with cursor pointed to most recent buffer name"
+  (let ((recent-buffer-name (buffer-name)))
+    ad-do-it
+    (ibuffer-jump-to-buffer recent-buffer-name)))
+(ad-activate 'ibuffer)
+
+;; for making it pretty
+(defun aligne (begin end)
+  "Align region to equal signs"
+   (interactive "r")
+   (align-regexp begin end "\\(\\s-*\\)=" 1 1 ))
+
+;; filter groups
+;; TODO: dynamic groups by project
+(setq ibuffer-saved-filter-groups
+  (quote (("default"      
+            ("Org" ;; all org-related buffers
+              (mode . org-mode))  
+            ))))
+
+(add-hook 'ibuffer-mode-hook
+  (lambda ()
+    (ibuffer-switch-to-saved-filter-groups "default")))
+
+(put 'downcase-region 'disabled nil)
+
+(put 'upcase-region 'disabled nil)
+
+;; (add-hook 'rustic-mode-hook 'cargo-minor-mode)
+;; (use-package rustic)
+(use-package lsp-ui)
+
+(use-package helm
+  :diminish helm-mode
+  :init
+  (progn
+    (require 'helm-config)
+    (setq helm-candidate-number-limit 100)
+    ;; From https://gist.github.com/antifuchs/9238468
+    (setq helm-idle-delay 0.0 ; update fast sources immediately (doesn't).
+          helm-input-idle-delay 0.01  ; this actually updates things
+                                        ; reeeelatively quickly.
+          helm-yas-display-key-on-candidate t
+          helm-quick-update t
+          helm-M-x-requires-pattern nil
+          helm-ff-skip-boring-files t)
+    (helm-mode))
+  :bind (("C-c h" . helm-mini)
+         ("C-h a" . helm-apropos)
+         ("C-x C-b" . helm-buffers-list)
+         ("C-x b" . helm-buffers-list)
+         ("M-y" . helm-show-kill-ring)
+         ("M-x" . helm-M-x)
+         ("C-x c o" . helm-occur)
+         ("C-x c s" . helm-swoop)
+         ("C-x c y" . helm-yas-complete)
+         ("C-x c Y" . helm-yas-create-snippet-on-region)
+         ("C-x c b" . my/helm-do-grep-book-notes)
+         ("C-x c SPC" . helm-all-mark-rings)))
+(ido-mode -1) ;; Turn off ido mode in case I enabled it accidentally
+
+(use-package helm-descbinds
+  :defer t
+  :bind (("C-h b" . helm-descbinds)
+         ("C-h w" . helm-descbinds)))
+
+;; helm from https://github.com/emacs-helm/helm
+(require 'helm)
+
+;; Locate the helm-swoop folder to your path
+(add-to-list 'load-path "~/.emacs.d/elisp/helm-swoop")
+(require 'helm-swoop)
+
+;; Change the keybinds to whatever you like :)
+(global-set-key (kbd "M-i") 'helm-swoop)
+(global-set-key (kbd "M-I") 'helm-swoop-back-to-last-point)
+(global-set-key (kbd "C-c M-i") 'helm-multi-swoop)
+(global-set-key (kbd "C-x M-i") 'helm-multi-swoop-all)
+
+;; When doing isearch, hand the word over to helm-swoop
+(define-key isearch-mode-map (kbd "M-i") 'helm-swoop-from-isearch)
+;; From helm-swoop to helm-multi-swoop-all
+(define-key helm-swoop-map (kbd "M-i") 'helm-multi-swoop-all-from-helm-swoop)
+;; When doing evil-search, hand the word over to helm-swoop
+;; (define-key evil-motion-state-map (kbd "M-i") 'helm-swoop-from-evil-search)
+
+;; Instead of helm-multi-swoop-all, you can also use helm-multi-swoop-current-mode
+(define-key helm-swoop-map (kbd "M-m") 'helm-multi-swoop-current-mode-from-helm-swoop)
+
+;; Move up and down like isearch
+(define-key helm-swoop-map (kbd "C-r") 'helm-previous-line)
+(define-key helm-swoop-map (kbd "C-s") 'helm-next-line)
+(define-key helm-multi-swoop-map (kbd "C-r") 'helm-previous-line)
+(define-key helm-multi-swoop-map (kbd "C-s") 'helm-next-line)
+
+;; Save buffer when helm-multi-swoop-edit complete
+(setq helm-multi-swoop-edit-save t)
+
+;; If this value is t, split window inside the current window
+(setq helm-swoop-split-with-multiple-windows nil)
+
+;; Split direcion. 'split-window-vertically or 'split-window-horizontally
+(setq helm-swoop-split-direction 'split-window-vertically)
+
+;; ;; Go to the opposite side of line from the end or beginning of line
+(setq helm-swoop-move-to-line-cycle t)
+
+;; Optional face for line numbers
+;; Face name is `helm-swoop-line-number-face`
+(setq helm-swoop-use-line-number-face t)
+
+;; If you prefer fuzzy matching
+(setq helm-swoop-use-fuzzy-match t)
+
+;; If you would like to use migemo, enable helm's migemo feature
+;; (helm-migemo-mode 1)
+
+(setq rainbow-delimiters-outermost-only-face-count 1)
+
+(use-package helm-lsp
+  :config
+  (define-key lsp-mode-map [remap xref-find-apropos] #'helm-lsp-workspace-symbol))
+
+(add-hook 'xref-backend-functions #'dumb-jump-xref-activate)
+
+(setq dumb-jump-force-searcher 'rg)
+
+(setq lsp-eslint-server-command 
+   '("node" 
+     "/some/user/vscode-eslint/server/out/eslintServer.js" 
+     "--stdio"))
+
+(autoload 'tern-mode "tern.el" nil t)
+(setq tern-command 
+      '("node" 
+	"/some/user/.nvm/versions/node/v16.3.0/bin/tern"))
+
+(add-hook 'js2-mode-hook (lambda () (tern-mode t)))
+(eval-after-load 'tern
+   '(progn
+      (require 'tern-auto-complete)
+      (tern-ac-setup)))
+
+(use-package lsp-dart
+  :ensure t
+  :hook (dart-mode . lsp))
+
+(use-package hover :ensure t) ;; run app from desktop without emulator
+
+(require 'company)
+;; (require 'web-mode)
+(require 'flycheck)
+;; (require 'flycheck-flow)
+(require 'tern)
+(require 'js2-mode)
+;; package.json looks better in web-mode 'cause double quotes on keys
+;; (require 'json-mode)  
+
+
+;; (setq web-mode-content-types-alist
+;;           '(("jsx" . "\\.js[x]?\\'")))
+
+;; (eval-after-load 'company
+;;   '(add-to-list 'company-backends 'company-flow))
+
+;; add eslint and flow checkers to flycheck
+(flycheck-add-mode 'javascript-eslint 'js2-mode)
+;; (flycheck-add-mode 'javascript-flow 'web-mode)
+
+;; ;; disable jshint since we prefer eslint checking
+;; (setq-default flycheck-disabled-checkers
+;;   (append flycheck-disabled-checkers
+;;     '(javascript-jshint)))
+;; 
+;; (defun jsWithEslint ()
+;;   "eslint for js files"
+;;   (interactive)
+;;   (web-mode)
+;;   (web-mode-set-content-type "jsx")
+;;   (flycheck-disable-checker 'javascript-flow)
+;;   (flycheck-select-checker 'javascript-eslint)
+;;   (flycheck-mode))
+;; 
+;; (defun jsWithEslintFlow ()
+;;   "flow and eslint for js files"
+;;   (interactive)
+;;   (web-mode)
+;;   (web-mode-set-content-type "jsx")
+;;   (flycheck-select-checker 'javascript-eslint)
+;;   (flycheck-add-next-checker 'javascript-eslint 'javascript-flow)
+;;   (flycheck-mode))
+;; 
+;; ;; set key shortcuts if you want
+;; (global-set-key (kbd "C-c j") 'jsWithEslint)
+;; (global-set-key (kbd "C-c f") 'jsWithEslintFlow)
+;; 
+;; (add-to-list 'auto-mode-alist '("\\.js\\'" . jsWithEslint))
+;; (add-to-list 'magic-mode-alist '("/\\* @flow \\*/" . jsWithEslintFlow))
+
+(eval-after-load 'js-mode
+	   '(add-hook 'js-mode-hook (lambda () (add-hook 'after-save-hook 'eslint-fix nil t))))
+
+(eval-after-load 'js2-mode
+	   '(add-hook 'js2-mode-hook (lambda () (add-hook 'after-save-hook 'eslint-fix nil t))))
+
+
+
+
+;; (setq prettier-js-args '(
+;;   "--trailing-comma" "es5"
+;;   "--bracket-spacing" "false"
+;;   "--print-width" "100"
+;; ))
+(setq prettier-js-args '(
+  "--trailing-comma" "all"
+  "--single-quote" "true"
+  "--bracket-spacing" "true"
+  "--print-width" "80"
+  "--jsx-single-quote" "true"
+  "--jsx-bracket-same-line" "true"
+  "--tab-width" "2"
+))
+
+(use-package prettier-js
+  :ensure t
+  :init (progn
+          (add-hook 'typescript-mode-hook 'prettier-js-mode)
+	  (add-hook 'js-mode-hook 'prettier-js-mode)))
+
+(with-eval-after-load 'flycheck
+  (flycheck-jest-setup))
+
+;; (setq prettier-js-args '(
+;;   "--trailing-comma" "none"
+;;   "--bracket-spacing" "true"
+;;   "--single-quote" "true"
+;;   "--no-semi" "true"
+;;   "--jsx-single-quote" "true"
+;;   "--jsx-bracket-same-line" "true"
+;;   "--print-width" "100"))
+
+(add-hook 'js-mode-hook (lambda ()
+			  (js2-minor-mode)
+                          (tern-mode)
+                          (company-mode)))
+                           
+;; Disable completion keybindings, as we use xref-js2 instead
+;; (define-key tern-mode-keymap (kbd "M-.") nil)
+;; (define-key tern-mode-keymap (kbd "M-,") nil)
+
+
+(define-key js2-mode-map (kbd "M-.") nil)
+(add-hook 'js2-mode-hook (lambda ()
+  (add-hook 'xref-backend-functions #'xref-js2-xref-backend nil t)))
+(setq xref-js2-search-program 'rg)
+
+;; evaluating tide still
+;; https://github.com/ananthakumaran/tide
+(use-package tide :ensure t)
+
+  (defun setup-tide-mode ()
+    (interactive)
+    (tide-setup)
+    (flycheck-mode +1)
+    (setq flycheck-check-syntax-automatically '(save mode-enabled))
+    (eldoc-mode +1)
+    (tide-hl-identifier-mode +1)
+    ;; company is an optional dependency. You have to
+    ;; install it separately via package-install
+    ;; `M-x package-install [ret] company`
+    (company-mode +1))
+
+  ;; aligns annotation to the right hand side
+  (setq company-tooltip-align-annotations t)
+
+  ;; formats the buffer before saving
+  (add-hook 'before-save-hook 'tide-format-before-save)
+
+  (add-hook 'typescript-mode-hook #'setup-tide-mode)
+
+
+(set-cursor-color "#83f52c")
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(ansi-color-faces-vector
+   [default bold shadow italic underline bold bold-italic bold])
+ '(beacon-color "#d33682")
+ '(compilation-message-face 'default)
+ '(cua-global-mark-cursor-color "#689d6a")
+ '(cua-normal-cursor-color "#a89984")
+ '(cua-overwrite-cursor-color "#d79921")
+ '(cua-read-only-cursor-color "#98971a")
+ '(custom-enabled-themes '(hc-zenburn))
+ '(custom-safe-themes
+   '("fee7287586b17efbfda432f05539b58e86e059e78006ce9237b8732fde991b4c" "a37d20710ab581792b7c9f8a075fcbb775d4ffa6c8bce9137c84951b1b453016" "d031ffac50a285ded416947302d0191fd6ea5514f3e5fbb8b9f8826274d06523" "f2c35f8562f6a1e5b3f4c543d5ff8f24100fae1da29aeb1864bbc17758f52b70" "51ec7bfa54adf5fff5d466248ea6431097f5a18224788d0bd7eb1257a4f7b773" "830877f4aab227556548dc0a28bf395d0abe0e3a0ab95455731c9ea5ab5fe4e1" "7f1d414afda803f3244c6fb4c2c64bea44dac040ed3731ec9d75275b9e831fe5" "4cf3221feff536e2b3385209e9b9dc4c2e0818a69a1cdb4b522756bcdf4e00a4" "4aee8551b53a43a883cb0b7f3255d6859d766b6c5e14bcb01bed572fcbef4328" "13a8eaddb003fd0d561096e11e1a91b029d3c9d64554f8e897b2513dbf14b277" "fc5fcb6f1f1c1bc01305694c59a1a861b008c534cae8d0e48e4d5e81ad718bc6" "1e7e097ec8cb1f8c3a912d7e1e0331caeed49fef6cff220be63bd2a6ba4cc365" default))
+ '(ecb-options-version "2.40")
+ '(flycheck-color-mode-line-face-to-color 'mode-line-buffer-id)
+ '(frame-background-mode 'dark)
+ '(highlight-changes-colors '("#d3869b" "#b16286"))
+ '(highlight-symbol-colors
+   '("#511b3c9a2628" "#35b845883443" "#596d368233c0" "#462734963c8d" "#3e8b3c67250e" "#521b34e723f5" "#34573c9b3c88"))
+ '(highlight-symbol-foreground-color "#bdae93")
+ '(highlight-tail-colors
+   '(("#32302f" . 0)
+     ("#747400" . 20)
+     ("#2e7d33" . 30)
+     ("#14676b" . 50)
+     ("#a76e00" . 60)
+     ("#a53600" . 70)
+     ("#9f4d64" . 85)
+     ("#32302f" . 100)))
+ '(hl-bg-colors
+   '("#a76e00" "#a53600" "#b21b0b" "#9f4d64" "#8b2a58" "#14676b" "#2e7d33" "#747400"))
+ '(hl-fg-colors
+   '("#282828" "#282828" "#282828" "#282828" "#282828" "#282828" "#282828" "#282828"))
+ '(hl-paren-colors '("#689d6a" "#d79921" "#458588" "#b16286" "#98971a"))
+ '(js-indent-level 2)
+ '(js2-highlight-level 3)
+ '(lj-default-access-level "friends")
+ '(lsp-rust-analyzer-display-chaining-hints t)
+ '(lsp-rust-analyzer-display-parameter-hints nil)
+ '(lsp-rust-analyzer-macro-expansion-method 'rustic-analyzer-macro-expand t)
+ '(lsp-rust-analyzer-server-command '("/some/user/.cargo/bin/rust-analyzer"))
+ '(lsp-rust-analyzer-server-display-inlay-hints nil)
+ '(lsp-rust-full-docs t)
+ '(lsp-rust-server 'rust-analyzer)
+ '(lsp-ui-doc-alignment 'window)
+ '(lsp-ui-doc-border "#bdae93")
+ '(lsp-ui-doc-position 'top)
+ '(lsp-ui-sideline-enable nil)
+ '(nrepl-message-colors
+   '("#fb4933" "#d65d0e" "#d79921" "#747400" "#b9b340" "#14676b" "#689d6a" "#d3869b" "#b16286"))
+ '(org-agenda-files nil)
+ '(org-agenda-ndays 30)
+ '(org-export-with-drawers t)
+ '(package-selected-packages
+   '(helm-ag flycheck-popup-tip csv-mode zerodark-theme helm-projectile helm-swoop svg svg-mode-line-themes php-mode yafolding js2-refactor danneskjold-theme hc-zenburn-theme rainbow-delimiters powerline zenburn-theme color-theme-sanityinc-solarized yaml-mode crux kubernetes magit-gh-pulls magit-todos magithub magit handlebars-mode rjsx-mode graphql graphql-mode flycheck-jest jest-test-mode flymake-json json-mode dumb-jump helm helm-company helm-core helm-lsp helm-xref ivy-xref ivy xref eslint-fix company-flow flow-js2-mode flow-minor-mode flycheck-flow web-mode xref-js2 gh-md markdown-mode markdown-mode+ hover lsp-dart tern-auto-complete tern-context-coloring tern which-key lsp-latex exec-path-from-shell rustic flycheck lsp-mode lsp-ui cargo tide yasnippet yatemplate company ox-gfm vmd-mode ox-reveal solarized-theme use-package))
+ '(pdf-latex-command "xelatex")
+ '(pos-tip-background-color "#32302f")
+ '(pos-tip-foreground-color "#bdae93")
+ '(rustic-format-on-save t t)
+ '(smartrep-mode-line-active-bg (solarized-color-blend "#98971a" "#32302f" 0.2))
+ '(term-default-bg-color "#282828")
+ '(term-default-fg-color "#a89984")
+ '(vc-annotate-background-mode nil)
+ '(web-mode-code-indent-offset 2)
+ '(web-mode-css-indent-offset 2)
+ '(web-mode-markup-indent-offset 2)
+ '(weechat-color-list
+   '(unspecified "#282828" "#32302f" "#b21b0b" "#fb4933" "#747400" "#98971a" "#a76e00" "#d79921" "#14676b" "#458588" "#9f4d64" "#d3869b" "#2e7d33" "#689d6a" "#a89984" "#282828"))
+ '(xterm-color-names
+   ["#32302f" "#fb4933" "#98971a" "#d79921" "#458588" "#d3869b" "#689d6a" "#a89984"])
+ '(xterm-color-names-bright
+   ["#282828" "#d65d0e" "#7c6f64" "#282828" "#a89984" "#b16286" "#bdae93" "#fbf1c7"]))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(markdown-inline-code-face ((t (:foreground "color-34")))))
+
+(autoload 'helm-company "helm-company") ;; Not necessary if using ELPA package
+(eval-after-load 'company
+  '(progn
+     (define-key company-mode-map (kbd "C-:") 'helm-company)
+     (define-key company-active-map (kbd "C-:") 'helm-company)))
