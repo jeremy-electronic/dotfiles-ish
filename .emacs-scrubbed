@@ -622,21 +622,21 @@ also recursively including all dependency as specified in DEPENDENCY-ALIST."
 ;;   "--bracket-spacing" "false"
 ;;   "--print-width" "100"
 ;; ))
-(setq prettier-js-args '(
-  "--trailing-comma" "all"
-  "--single-quote" "true"
-  "--bracket-spacing" "true"
-  "--print-width" "80"
-  "--jsx-single-quote" "true"
-  "--jsx-bracket-same-line" "true"
-  "--tab-width" "2"
-))
-
 (use-package prettier-js
   :ensure t
   :init (progn
           (add-hook 'typescript-mode-hook 'prettier-js-mode)
 	  (add-hook 'js-mode-hook 'prettier-js-mode)))
+
+(setq prettier-js-args '(
+  "--trailing-comma" "all"
+  "--single-quote" "true"
+  "--bracket-spacing" "true"
+  "--print-width" "80"
+  "--jsx-single-quote" "false"
+  "--jsx-bracket-same-line" "true"
+  "--tab-width" "2"
+))
 
 (with-eval-after-load 'flycheck
   (flycheck-jest-setup))
@@ -746,9 +746,15 @@ also recursively including all dependency as specified in DEPENDENCY-ALIST."
    '("#fb4933" "#d65d0e" "#d79921" "#747400" "#b9b340" "#14676b" "#689d6a" "#d3869b" "#b16286"))
  '(org-agenda-files nil)
  '(org-agenda-ndays 30)
+ '(org-export-backends '(ascii html icalendar latex md odt))
  '(org-export-with-drawers t)
  '(package-selected-packages
-   '(helm-ag flycheck-popup-tip csv-mode zerodark-theme helm-projectile helm-swoop svg svg-mode-line-themes php-mode yafolding js2-refactor danneskjold-theme hc-zenburn-theme rainbow-delimiters powerline zenburn-theme color-theme-sanityinc-solarized yaml-mode crux kubernetes magit-gh-pulls magit-todos magithub magit handlebars-mode rjsx-mode graphql graphql-mode flycheck-jest jest-test-mode flymake-json json-mode dumb-jump helm helm-company helm-core helm-lsp helm-xref ivy-xref ivy xref eslint-fix company-flow flow-js2-mode flow-minor-mode flycheck-flow web-mode xref-js2 gh-md markdown-mode markdown-mode+ hover lsp-dart tern-auto-complete tern-context-coloring tern which-key lsp-latex exec-path-from-shell rustic flycheck lsp-mode lsp-ui cargo tide yasnippet yatemplate company ox-gfm vmd-mode ox-reveal solarized-theme use-package))
+   '(clean-kill-ring tubestatus highlight-indent-guides beacon paradox helm-ag flycheck-popup-tip csv-mode zerodark-theme helm-projectile helm-swoop svg svg-mode-line-themes php-mode yafolding js2-refactor danneskjold-theme hc-zenburn-theme rainbow-delimiters powerline zenburn-theme color-theme-sanityinc-solarized yaml-mode crux kubernetes magit-gh-pulls magit-todos magithub magit handlebars-mode rjsx-mode graphql graphql-mode flycheck-jest jest-test-mode flymake-json json-mode dumb-jump helm helm-company helm-core helm-lsp helm-xref ivy-xref ivy xref eslint-fix company-flow flow-js2-mode flow-minor-mode flycheck-flow web-mode xref-js2 gh-md markdown-mode markdown-mode+ hover lsp-dart tern-auto-complete tern-context-coloring tern which-key lsp-latex exec-path-from-shell rustic flycheck lsp-mode lsp-ui cargo tide yatemplate company ox-gfm vmd-mode ox-reveal solarized-theme use-package))
+ '(paradox-column-width-download 6)
+ '(paradox-column-width-package 25)
+ '(paradox-column-width-star 8)
+ '(paradox-column-width-version 15)
+ '(paradox-github-token t)
  '(pdf-latex-command "xelatex")
  '(pos-tip-background-color "#32302f")
  '(pos-tip-foreground-color "#bdae93")
